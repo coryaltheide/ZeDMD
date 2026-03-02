@@ -38,7 +38,7 @@ Here is a short demo of ZeDMD and ZeDMD HD in parallel:
 
 [![Watch the video](https://img.youtube.com/vi/B6D00oB4Co8/default.jpg)](https://youtu.be/B6D00oB4Co8)
 
-For the special need of ultra small virtual pinball cabs, the LilyGo AMOLED T-Display-S3 V2 is also supported and displays content in 128x32.
+For the special need of ultra small virtual pinball cabs, the LilyGo AMOLED T-Display-S3 V2 and the LilyGo T-Display-S3 Long are also supported and display content in 128x32.
 One use-case is [PinPal](https://github.com/bartdesign/PinPal).
 
 ## Flashing the firmware
