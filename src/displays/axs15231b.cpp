@@ -145,10 +145,9 @@ void axs15231b_init(void) {
   pinMode(TFT_QSPI_RST, OUTPUT);
   pinMode(TFT_BL, OUTPUT);
 
-  // Initialize backlight PWM
-  ledcSetup(0, 2000, 8);
-  ledcAttachPin(TFT_BL, 0);
-  ledcWrite(0, 0);  // Start with backlight off
+   // Initialize backlight PWM
+  ledcAttach(TFT_BL, 2000, 8);
+  ledcWrite(TFT_BL, 0);  // Start with backlight off
 
   // Reset sequence
   TFT_RES_H;
@@ -195,7 +194,7 @@ void axs15231b_init(void) {
   }
 
   // Turn on backlight
-  ledcWrite(0, 255);
+  ledcWrite(TFT_BL, 255);
 }
 
 void lcd_setRotation(uint8_t r) {
