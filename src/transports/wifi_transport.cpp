@@ -295,7 +295,7 @@ void WifiTransport::startServer() {
     request->send(200, "application/json", jsonResponse);
   });
 
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   // Route to save RGB order
   server->on("/save_rgb_order", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (request->hasParam("rgbOrder", true)) {
@@ -350,7 +350,7 @@ void WifiTransport::startServer() {
   server->on("/get_width", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain", String(TOTAL_WIDTH));
   });
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   server->on("/get_rgb_order", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain", String(rgbMode));
   });
@@ -415,7 +415,7 @@ void WifiTransport::startServer() {
 
   server->on("/get_s3", HTTP_GET, [](AsyncWebServerRequest* request) {
 #if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED) || \
-    defined(PICO_BUILD)
+    defined(DISPLAY_AXS15231B_LONG) || defined(PICO_BUILD)
     request->send(200, "text/plain", String(1));
 #else
     request->send(200, "text/plain", String(0));
@@ -433,7 +433,7 @@ void WifiTransport::startServer() {
             String(ZEDMD_VERSION_MAJOR) + "." + String(ZEDMD_VERSION_MINOR) +
             "." + String(ZEDMD_VERSION_PATCH) + "|" +
 #if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED) || \
-    defined(PICO_BUILD)
+    defined(DISPLAY_AXS15231B_LONG) || defined(PICO_BUILD)
             String(1)
 #else
         String(0)
@@ -442,7 +442,7 @@ void WifiTransport::startServer() {
             "|" + String(m_delay) + "|" +
             String(usbPackageSizeMultiplier * 32) + "|" + String(brightness) +
             "|" +
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
             String(rgbMode) + "|" + String(panelClkphase) + "|" +
             String(panelDriver) + "|" + String(panelI2sspeed) + "|" +
             String(panelLatchBlanking) + "|" + String(panelMinRefreshRate) +
@@ -461,6 +461,8 @@ void WifiTransport::startServer() {
             "1"  // ESP32 S3
 #elif defined(DISPLAY_RM67162_AMOLED)
             "2"  // ESP32 S3 with RM67162
+#elif defined(DISPLAY_AXS15231B_LONG)
+            "5"  // ESP32 S3 with AXS15231B
 #elif defined(PICO_BUILD)
 #ifdef BOARD_HAS_PSRAM
             "3"  // RP2350
@@ -507,7 +509,7 @@ void WifiTransport::startServer() {
     String json = "{";
     json += R"("ssid":")" + trimmedSsid + "\",";
     json += R"("port":)" + String(port) + ",";
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
     json += R"("rgbOrder":)" + String(rgbMode) + ",";
 #endif
     json += R"("brightness":)" + String(brightness) + ",";
