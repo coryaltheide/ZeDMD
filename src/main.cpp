@@ -37,7 +37,8 @@
 #endif
 
 // Specific improvements and #define for the ESP32 S3 series
-#if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED)
+#if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED) || \
+    defined(DISPLAY_AXS15231B_LONG)
 #include "S3Specific.h"
 #endif
 #ifndef PICO_BUILD
@@ -56,6 +57,8 @@
 // To save RAM only include the driver we want to use.
 #ifdef DISPLAY_RM67162_AMOLED
 #include "displays/Rm67162Amoled.h"
+#elif defined(DISPLAY_AXS15231B_LONG)
+#include "displays/Axs15231bLong.h"
 #elif defined(PICO_BUILD)
 #include "displays/PicoLedMatrix.h"
 #else
@@ -128,7 +131,7 @@ bool rgb565ZoneStream = false;
 
 // Init display on a low brightness to avoid power issues, but bright enough to
 // see something.
-#ifdef DISPLAY_RM67162_AMOLED
+#if defined(DISPLAY_RM67162_AMOLED) || defined(DISPLAY_AXS15231B_LONG)
 uint8_t brightness = 5;
 #else
 uint8_t brightness = 2;
@@ -144,6 +147,8 @@ uint8_t panelMinRefreshRate = 60;
 bool core_0_initialized = false;
 bool core_1_initialized = false;
 uint8_t loopbackColor = (uint8_t)Color::DMD_ORANGE;
+uint8_t warningShown = 0;
+uint32_t spiStartMs = 0;
 
 const char *ColorString(uint8_t color) {
   switch ((Color)color) {
@@ -194,6 +199,29 @@ static void Scale2xLoopback(const uint8_t *src, uint8_t *dst, uint16_t srcWidth,
       out0[2] = out0[5] = out1[2] = out1[5] = b;
     }
   }
+}
+
+constexpr uint32_t kDmdreaderNoDataTimeoutMs = 20000;
+static const char *kDmdreaderNoDataLines[] = {
+    "The colorization module is not", "sending anything. Check if the",
+    "serum.cROMc file is the right", "one for your game, the ROM",
+    "version and the language."};
+
+static void DrawDmdreaderNoDataWarning() {
+  display->ClearScreen();
+
+  const uint8_t lineHeight = 6;
+  const uint8_t totalLines =
+      sizeof(kDmdreaderNoDataLines) / sizeof(kDmdreaderNoDataLines[0]);
+  const uint8_t maxLines = TOTAL_HEIGHT / lineHeight;
+  const uint8_t linesToShow = (totalLines < maxLines) ? totalLines : maxLines;
+
+  for (uint8_t i = 0; i < linesToShow; ++i) {
+    display->DisplayText(kDmdreaderNoDataLines[i], 0, i * lineHeight, 255, 0,
+                         0);
+  }
+
+  display->Render();
 }
 #endif
 
@@ -318,7 +346,7 @@ void DisplayLum(uint8_t r = 128, uint8_t g = 128, uint8_t b = 128) {
 }
 
 void DisplayRGB(uint8_t r = 128, uint8_t g = 128, uint8_t b = 128) {
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   display->DisplayText("red", 0, 0, 0, 0, 0, true, true);
   for (uint8_t i = 0; i < 6; i++) {
     display->DrawPixel(TOTAL_WIDTH - (4 * 4) - 1, i, 0, 0, 0);
@@ -385,7 +413,7 @@ void SaveSettingsMenu() {
 void LoadSettingsMenu() {
   File f = LittleFS.open("/settings_menu.val", "r");
   if (!f) {
-#if !defined(DISPLAY_RM67162_AMOLED)
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
     // Show settings menu on freshly installed device
     settingsMenu = 1;
 #endif
@@ -742,7 +770,7 @@ void AcquireNextBuffer() {
 }
 
 void CheckMenuButton() {
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   if (!digitalRead(FORWARD_BUTTON_PIN)) {
     settingsMenu = true;
     SaveSettingsMenu();
@@ -790,7 +818,7 @@ uint8_t GetPixelBrightness(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void Render(bool renderAll = true) {
-#ifdef DISPLAY_RM67162_AMOLED
+#if defined(DISPLAY_RM67162_AMOLED) || defined(DISPLAY_AXS15231B_LONG)
   display->FillPanelRaw(renderBuffer[currentRenderBuffer]);
 #else
   if (NUM_RENDER_BUFFERS == 1 || currentRenderBuffer != lastRenderBuffer) {
@@ -926,10 +954,8 @@ void ClearScreen() {
 void DisplayLogo() {
   File f;
 
-  if (TOTAL_WIDTH == 256 && TOTAL_HEIGHT == 64) {
+  if (TOTAL_HEIGHT == 64) {
     f = LittleFS.open("/logoHD.raw", "r");
-  } else if (TOTAL_WIDTH == 192 && TOTAL_HEIGHT == 64) {
-    f = LittleFS.open("/logoSEGAHD.raw", "r");
   } else {
     f = LittleFS.open("/logo.raw", "r");
   }
@@ -938,7 +964,7 @@ void DisplayLogo() {
     display->DisplayText("Logo is missing", 0, 0, 255, 0, 0);
     return;
   }
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   for (uint16_t tj = 0; tj < TOTAL_BYTES; tj += 3) {
     if (rgbMode == rgbModeLoaded) {
       renderBuffer[currentRenderBuffer][tj] = f.read();
@@ -982,10 +1008,8 @@ void DisplayId() {
 void DisplayUpdate() {
   File f;
 
-  if (TOTAL_WIDTH == 256 && TOTAL_HEIGHT == 64) {
+  if (TOTAL_HEIGHT == 64) {
     f = LittleFS.open("/ppucHD.raw", "r");
-  } else if (TOTAL_WIDTH == 192 && TOTAL_HEIGHT == 64) {
-    // need to add some day
   } else {
     f = LittleFS.open("/ppuc.raw", "r");
   }
@@ -1163,7 +1187,7 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
             response[N_INTERMEDIATE_CTR_CHARS + 8] =
                 ((usbPackageSizeMultiplier * 32) >> 8) & 0xff;
             response[N_INTERMEDIATE_CTR_CHARS + 9] = brightness;
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
             response[N_INTERMEDIATE_CTR_CHARS + 10] = rgbMode;
             response[N_INTERMEDIATE_CTR_CHARS + 11] = yOffset;
             response[N_INTERMEDIATE_CTR_CHARS + 12] = panelClkphase;
@@ -1179,7 +1203,7 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
             response[N_INTERMEDIATE_CTR_CHARS + 18] = 0;
 #endif
 #if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED) || \
-    defined(PICO_BUILD)
+    defined(DISPLAY_AXS15231B_LONG) || defined(PICO_BUILD)
             response[N_INTERMEDIATE_CTR_CHARS + 18] += 0b00000010;
 #endif
             response[N_INTERMEDIATE_CTR_CHARS + 19] = shortId & 0xff;
@@ -1189,6 +1213,9 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
 #elif defined(DISPLAY_RM67162_AMOLED)
             response[N_INTERMEDIATE_CTR_CHARS + 21] = 2;  // ESP32 S3 with
                                                           // RM67162
+#elif defined(DISPLAY_AXS15231B_LONG)
+            response[N_INTERMEDIATE_CTR_CHARS + 21] = 5;  // ESP32 S3 with
+                                                          // AXS15231B
 #elif defined(PICO_BUILD)
 #ifdef BOARD_HAS_PSRAM
             response[N_INTERMEDIATE_CTR_CHARS + 21] = 3;  // RP2350
@@ -1216,7 +1243,7 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
             if (transport->isWifiAndActive()) break;
             return 1;
           }
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
           case 23:  // set RGB order
           {
             rgbMode = pData[pos++];
@@ -1417,7 +1444,7 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
           }
 #endif
 
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
           case 40:  // set panelClkphase
           {
             panelClkphase = pData[pos++];
@@ -1490,7 +1517,7 @@ uint8_t HandleData(uint8_t *pData, size_t len) {
             if (transport->isWifiAndActive()) break;
             return 1;
           }
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
           case 48:  // set yOffset
           {
             yOffset = pData[pos++];
@@ -1888,6 +1915,8 @@ void setup() {
 
 #ifdef DISPLAY_RM67162_AMOLED
   display = (DisplayDriver *)new Rm67162Amoled();  // For AMOLED display
+#elif defined(DISPLAY_AXS15231B_LONG)
+  display = (DisplayDriver *)new Axs15231bLong();  // For T-Display-S3-Long LCD
 #elif defined(DISPLAY_LED_MATRIX)
 #if PICO_BUILD
   display =
@@ -1964,7 +1993,7 @@ void setup() {
     memset(renderBuffer[i], 0, TOTAL_BYTES);
   }
 
-#ifndef DISPLAY_RM67162_AMOLED
+#if !defined(DISPLAY_RM67162_AMOLED) && !defined(DISPLAY_AXS15231B_LONG)
   if (settingsMenu) {
     // Turn off settings menu after restart here.
     // Previously, the value has been set when selecting exit.
@@ -2323,6 +2352,7 @@ void loop() {
       *dst++ = Expand5To8[rgb565 & 0x1f];
     }
     Render();
+    if (warningShown < 30) warningShown++;
   } else if (transport->isLoopback()) {
     uint8_t *buffer = dmdreader_loopback_render();
     if (buffer != nullptr) {
@@ -2336,6 +2366,13 @@ void loop() {
         memcpy(renderBuffer[currentRenderBuffer], buffer, TOTAL_BYTES);
       }
       Render();
+    }
+  } else if (warningShown < 30) {
+    if (spiStartMs == 0) {
+      spiStartMs = millis();
+    } else if ((millis() - spiStartMs) >= kDmdreaderNoDataTimeoutMs) {
+      DrawDmdreaderNoDataWarning();
+      warningShown = 30;
     }
   }
   tight_loop_contents();
