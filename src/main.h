@@ -29,7 +29,7 @@
 #endif
 #define NUM_RENDER_BUFFERS 1
 #define BUFFER_SIZE 1152
-#elif defined(DISPLAY_RM67162_AMOLED)
+#elif defined(DISPLAY_RM67162_AMOLED) || defined(DISPLAY_AXS15231B_LONG)
 #define NUM_BUFFERS 128  // Number of buffers
 // @fixme double buffering doesn't work on Lilygo Amoled
 #define NUM_RENDER_BUFFERS 1
@@ -45,7 +45,7 @@
 #endif
 
 #if defined(ARDUINO_ESP32_S3_N16R8) || defined(DISPLAY_RM67162_AMOLED) || \
-    defined(PICO_BUILD)
+    defined(DISPLAY_AXS15231B_LONG) || defined(PICO_BUILD)
 // USB CDC
 #define SERIAL_BAUD 115200
 #define USB_PACKAGE_SIZE 512
@@ -68,7 +68,7 @@
 #define DOWN_BUTTON_PIN 28
 #define FORWARD_BUTTON_PIN 26
 #define BACKWARD_BUTTON_PIN 29
-#elif defined(DISPLAY_RM67162_AMOLED)
+#elif defined(DISPLAY_RM67162_AMOLED) || defined(DISPLAY_AXS15231B_LONG)
 #define UP_BUTTON_PIN 0
 #define FORWARD_BUTTON_PIN 21
 #else
